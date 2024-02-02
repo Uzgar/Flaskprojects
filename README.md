@@ -1,5 +1,5 @@
 # Flask Projects
-## _The Last Markdown Editor, Ever_
+## Set of Flask websites
 
 In this repo you'll find some different projects made with Flask,
 axed on interractions between user/user or user/computer (or both.
