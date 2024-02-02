@@ -1,0 +1,72 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
+    <script>
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        var players = {};
+
+        function createPlayer(playerId, x, y, color) {
+            var playerElement = document.createElement('div');
+            playerElement.className = 'player';
+            playerElement.id = playerId;
+            playerElement.style.backgroundColor = color;
+            document.body.appendChild(playerElement);
+            updatePlayerPosition(playerId, x, y);
+        }
+
+        function updatePlayerPosition(playerId, x, y) {
+            var playerElement = document.getElementById(playerId);
+            if (playerElement) {
+                playerElement.style.left = x + 'px';
+                playerElement.style.top = y + 'px';
+            }
+        }
+
+        socket.on('update_players', function(updatedPlayers) {
+            players = updatedPlayers;
+            for (var playerId in players) {
+                if (!document.getElementById(playerId)) {
+                    createPlayer(playerId, players[playerId].x, players[playerId].y, players[playerId].color);
+                } else {
+                    updatePlayerPosition(playerId, players[playerId].x, players[playerId].y);
+                }
+            }
+        });
+
+        document.addEventListener('click', function(event) {
+            var step = 10;
+            var rect = document.body.getBoundingClientRect();
+            var x = event.clientX - rect.left;
+            var y = event.clientY - rect.top;
+
+            socket.emit('move', {'x': x, 'y': y});
+        });
+    </script>
+</body>
+</html>

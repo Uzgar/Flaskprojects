@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screen Sharing</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.3/socket.io.js"></script>
+</head>
+<body>
+    <h1>Screen Sharing App</h1>
+    <button id="shareButton">Share Screen</button>
+    <img id="sharedScreen" style="width: 100%;" />
+
+    <script>
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        document.getElementById('shareButton').addEventListener('click', function() {
+            var username = prompt('Enter your username:');
+            socket.emit('share_screen', { 'username': username });
+        });
+
+        socket.on('screen_shared', function(data) {
+            alert(data.username + ' is sharing their screen.');
+        });
+
+        var img = document.getElementById('sharedScreen');
+        var source = new EventSource('/video_feed');
+        source.onmessage = function(event) {
+            img.src = 'data:image/jpeg;base64,' + event.data;
+        };
+    </script>
+</body>
+</html>

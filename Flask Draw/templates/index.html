@@ -1,0 +1,165 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draw and Sync</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        canvas {
+            border: 1px solid #000;
+        }
+
+        div {
+            margin-top: 10px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 5px 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.3/socket.io.js"></script>
+</head>
+<body>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <div>
+        <label for="color">Color:</label>
+        <input type="color" id="color" value="#000000">
+    </div>
+    <div id="countdown">Clearing in 30 seconds</div>
+    <button id="clearButton">Clear Board</button>
+
+    <script>
+        const socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const colorInput = document.getElementById('color');
+        const countdownDiv = document.getElementById('countdown');
+        const clearButton = document.getElementById('clearButton');
+
+        let drawing = false;
+        let countdownTime = 30;
+
+        // Load existing drawings when the page is loaded
+        socket.on('load_drawing', function(data) {
+            for (let i = 0; i < data.length; i++) {
+                drawOnCanvas(data[i]);
+            }
+        });
+
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('touchmove', draw);
+
+        clearButton.addEventListener('click', clearBoard);
+
+        function startDrawing(e) {
+            drawing = true;
+            draw(e);
+        }
+
+        function stopDrawing() {
+            if (drawing) {
+                drawing = false;
+                socket.emit('pen_up');
+                context.beginPath();  // Reset the path when stopping drawing
+            }
+        }
+
+        function draw(e) {
+            e.preventDefault();
+
+            let x, y;
+            if (e.type === 'touchstart' || e.type === 'touchmove') {
+                x = e.touches[0].clientX - canvas.offsetLeft;
+                y = e.touches[0].clientY - canvas.offsetTop;
+            } else {
+                x = e.clientX - canvas.offsetLeft;
+                y = e.clientY - canvas.offsetTop;
+            }
+
+            const data = {
+                x,
+                y,
+                color: colorInput.value
+            };
+
+            drawOnCanvas(data);
+
+            if (drawing) {
+                socket.emit('draw', data);
+            }
+        }
+
+        function drawOnCanvas(data) {
+            context.lineWidth = 2;
+            context.lineCap = 'round';
+            context.strokeStyle = data.color;
+
+            context.lineTo(data.x, data.y);
+            context.stroke();
+            context.beginPath();
+            context.moveTo(data.x, data.y);
+        }
+
+        socket.on('draw', drawOnCanvas);
+
+        socket.on('pen_up', function() {
+            context.beginPath();
+        });
+
+        setInterval(function() {
+            countdownTime--;
+            if (countdownTime <= 0) {
+                socket.emit('clear_canvas');
+                countdownTime = 30;
+            }
+            updateCountdown();
+        }, 1000);
+
+        socket.on('clear_canvas', function(data) {
+            countdownTime = data.countdownTime;
+            updateCountdown();
+            context.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        function updateCountdown() {
+            countdownDiv.textContent = `Clearing in ${countdownTime} seconds`;
+            socket.emit('update_countdown', { countdownTime });
+        }
+
+        socket.on('update_countdown', function(data) {
+            countdownTime = data.countdownTime;
+            updateCountdown();
+        });
+
+        function clearBoard() {
+            socket.emit('clear_canvas');
+        }
+
+        clearButton.addEventListener('click', clearBoard);
+
+        function clearBoard() {
+            socket.emit('clear_canvas');
+        }
+
+    </script>
+</body>
+</html>
